@@ -54,5 +54,15 @@ namespace Altium.Tests
 
             Assert.IsTrue(new FileInfo(fileName).Length > options.DesiredFileLength);
         }
+
+        [Test]
+        public async Task Sort()
+        {
+            var sorter = new FileSorter();
+
+            await sorter.Sort("test.txt", CancellationToken.None);
+
+            Assert.Pass();
+        }
     }
 }
