@@ -10,4 +10,8 @@
       <PackageReference Include="NUnit" Version="3.13.1" />
     </ItemGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\Altium\Altium.csproj" />
+    </ItemGroup>
+
 </Project>
