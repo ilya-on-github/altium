@@ -14,4 +14,13 @@
       <ProjectReference Include="..\Altium\Altium.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <None Update="files\example.txt">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+      <None Update="files\example_expected.txt">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+    </ItemGroup>
+
 </Project>

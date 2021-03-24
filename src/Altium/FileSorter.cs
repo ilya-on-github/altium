@@ -6,81 +6,95 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Options;
 
 namespace Altium
 {
     public class FileSorter
     {
+        private readonly FileSorterOptions _options;
+
         private readonly Regex _lineRegex = new Regex(@"^(?<num>\d+)\.\s(?<text>.*)$");
 
-        public async Task Sort(string fileName, CancellationToken ct)
+        public FileSorter(IOptions<FileSorterOptions> options)
+        {
+            _options = options.Value;
+        }
+
+        public async Task Sort(string fileName, string outFileName, CancellationToken ct)
         {
             if (!File.Exists(fileName))
             {
                 throw new ArgumentException($"File '{fileName}' doesn't exist.", nameof(fileName));
             }
 
-            var directoryName = Path.GetDirectoryName(Path.GetFullPath(fileName));
-            // ReSharper disable once AssignNullToNotNullAttribute
-            var outFileName = Path.Combine(directoryName,
-                Path.GetFileNameWithoutExtension(fileName) + "_sorted" + Path.GetExtension(fileName));
-
-
             var sw = new Stopwatch();
             sw.Start();
 
-            var ranks = new List<LineInfo>();
-            using (var file = File.OpenRead(fileName))
+            var linesIndex = new List<LineInfo>();
+            await using var file = File.OpenRead(fileName);
+            using var streamReader = new StreamReader(file);
+
+            // Идея в том, чтобы прочесть файл, но сохранить не содержимое,
+            // а пару числовых значений для каждой строки:
+            //      1. её координаты в файле (позиция начала строки)
+            //      2. значение ранга этой строки, необходимое для сортировки
+            // Тем самым объём используемой памяти будет значительно ниже, чем если грузить в неё сам файл.
+            // А после такой индексации отсортировать значения на основе их ранга и записать
+            // в новый в файл, но уже в правильном порядке. При этом для чтения из исходного файла
+            // позиции начала строк уже были сохранены.
+
+            var lineIndex = 0;
+            string line;
+            while (!streamReader.EndOfStream)
             {
-                using (var streamReader = new StreamReader(file))
+                ct.ThrowIfCancellationRequested();
+
+                // TODO: исправить проблему с некорректным вычислением позиции начала строки
+                // StreamReader использует буфер, из-за чего file.Position не даёт нужное значение.
+                var position = file.Position;
+                line = await streamReader.ReadLineAsync();
+
+                var lineInfo = IndexLine(position, lineIndex, line);
+
+                linesIndex.Add(lineInfo);
+
+                lineIndex++;
+            }
+
+            // сортировка на основе вычисленого ранга
+            // TODO: придумать, как учитывать длину строки в значении TextScore при ранжировании
+            var linesOrdered = linesIndex.OrderBy(x => x.TextLength)
+                .ThenByDescending(x => x.TextScore)
+                .ThenBy(x => x.Number)
+                .ToList();
+
+            await using var outFile = File.Create(outFileName);
+            await using var streamWriter = new StreamWriter(outFile);
+
+            var batchSize = _options.WriteBatchSize;
+            var i = 0;
+
+            foreach (var lineInfo in linesOrdered)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                file.Position = lineInfo.PositionInFile;
+
+                line = await streamReader.ReadLineAsync();
+                await streamWriter.WriteLineAsync(line);
+
+                i++;
+
+                if (i % batchSize == 0)
                 {
-                    var lineIndex = 0;
-                    string line;
-                    while (!streamReader.EndOfStream)
-                    {
-                        var position = file.Position;
-                        line = await streamReader.ReadLineAsync();
-
-                        var rank = IndexLine(position, lineIndex, line);
-
-                        ranks.Add(rank);
-
-                        lineIndex++;
-                    }
-
-                    var linesOrdered = ranks.OrderBy(x => x.TextLength)
-                        .ThenByDescending(x => x.TextScore)
-                        .ThenBy(x => x.Number)
-                        .ToList();
-
-                    using (var outFile = File.Create(outFileName))
-                    {
-                        using (var streamWriter = new StreamWriter(outFile))
-                        {
-                            var batchSize = 1000;
-                            var i = 0;
-
-                            foreach (var lineInfo in linesOrdered)
-                            {
-                                file.Position = lineInfo.PositionInFile;
-
-                                line = await streamReader.ReadLineAsync();
-                                await streamWriter.WriteLineAsync(line);
-
-                                i++;
-
-                                if (i % batchSize == 0)
-                                {
-                                    await streamWriter.FlushAsync();
-                                }
-                            }
-                        }
-                    }
-
-                    Debug.WriteLine($"Ok, elapsed: {sw.Elapsed.TotalMilliseconds}.");
-                    Debug.WriteLine(linesOrdered);
+                    await streamWriter.FlushAsync();
                 }
             }
+
+            // TODO: убрать по завершении
+            Debug.WriteLine($"Ok, elapsed: {sw.Elapsed.TotalMilliseconds}.");
+            Debug.WriteLine(linesOrdered);
         }
 
         private LineInfo IndexLine(long linePosition, long lineIndex, string line)
@@ -97,7 +111,7 @@ namespace Altium
 
             const string order = "0123456789AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz";
 
-            var maxLineLength = 1024; // TODO: пересмотреть необходимость этого параметра
+            var maxLineLength = 1024; // TODO: придумать как избавиться от этого параметра
 
             long score = 0;
             for (var i = 0; i < text.Length; i++)
