@@ -23,11 +23,10 @@ namespace Altium
             _options = options.Value;
         }
 
-        public async Task CreateFile(CancellationToken ct)
+        public async Task CreateFile(string outFileName, CancellationToken ct)
         {
             InitVocabulary();
 
-            var fileName = _options.OutFileName;
             var batchSize = _options.BatchSize;
             long currentLength;
 
@@ -62,9 +61,9 @@ namespace Altium
                     }
                 }
 
-                await File.AppendAllLinesAsync(fileName, batch, ct);
+                await File.AppendAllLinesAsync(outFileName, batch, ct);
 
-                currentLength = new FileInfo(fileName).Length;
+                currentLength = new FileInfo(outFileName).Length;
             } while (currentLength < _options.DesiredFileLength);
         }
 

@@ -8,11 +8,6 @@
         public long DesiredFileLength { get; set; }
         
         /// <summary>
-        /// Имя выходного файла.
-        /// </summary>
-        public string OutFileName { get; set; }
-        
-        /// <summary>
         /// Размер словаря, из которого набираются строки при генерации файла.
         /// </summary>
         public int VocabularyLength { get; set; } = 1000;

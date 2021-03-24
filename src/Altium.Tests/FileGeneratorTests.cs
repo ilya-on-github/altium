@@ -35,7 +35,6 @@ namespace Altium.Tests
 
             var options = new FileGeneratorOptions
             {
-                OutFileName = fileName,
                 DesiredFileLength = sizeMb * 1_000_000,
                 BatchSize = 1_000_000
             };
@@ -47,7 +46,7 @@ namespace Altium.Tests
             sw.Start();
 
             // act
-            await generator.CreateFile(CancellationToken.None);
+            await generator.CreateFile(fileName, CancellationToken.None);
 
             // assert
             sw.Stop();
