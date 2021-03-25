@@ -52,10 +52,9 @@ namespace Altium
 
                 // TODO: исправить проблему с некорректным вычислением позиции начала строки
                 // StreamReader использует буфер, из-за чего file.Position не даёт нужное значение.
-                var position = file.Position;
                 line = await streamReader.ReadLineAsync();
 
-                var lineInfo = IndexLine(position, lineIndex, line);
+                var lineInfo = IndexLine(lineIndex, line);
 
                 linesIndex.Add(lineInfo);
 
@@ -79,9 +78,7 @@ namespace Altium
             {
                 ct.ThrowIfCancellationRequested();
 
-                file.Position = lineInfo.PositionInFile;
-
-                line = await streamReader.ReadLineAsync();
+                line = await streamReader.ReadLineAsync(lineInfo.Index);
                 await streamWriter.WriteLineAsync(line);
 
                 i++;
@@ -97,7 +94,7 @@ namespace Altium
             Debug.WriteLine(linesOrdered);
         }
 
-        private LineInfo IndexLine(long linePosition, long lineIndex, string line)
+        private LineInfo IndexLine(long lineIndex, string line)
         {
             var match = _lineRegex.Match(line);
 
@@ -129,20 +126,18 @@ namespace Altium
                 score += (maxLineLength - i) * (order.Length - cIndex);
             }
 
-            return new LineInfo(linePosition, lineIndex, text.Length, score, number);
+            return new LineInfo(lineIndex, text.Length, score, number);
         }
 
         internal class LineInfo
         {
-            public long PositionInFile { get; }
             public long Index { get; }
             public int TextLength { get; }
             public long TextScore { get; }
             public long Number { get; }
 
-            public LineInfo(long position, long index, int textLength, long textScore, long number)
+            public LineInfo(long index, int textLength, long textScore, long number)
             {
-                PositionInFile = position;
                 Index = index;
                 TextLength = textLength;
                 TextScore = textScore;

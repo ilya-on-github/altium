@@ -34,7 +34,7 @@ namespace Altium.Tests
             await using var outputExpectedFile = File.OpenRead(expectedOutputFileName);
             using var outputExpectedReader = new StreamReader(outputExpectedFile);
 
-            await using var outputActualFile = File.OpenRead(inputFileName);
+            await using var outputActualFile = File.OpenRead(outFileName);
             using var outputActualReader = new StreamReader(outputActualFile);
 
             while (!outputExpectedReader.EndOfStream)
