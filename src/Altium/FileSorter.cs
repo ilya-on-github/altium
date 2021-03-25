@@ -33,7 +33,7 @@ namespace Altium
 
             var linesIndex = new List<LineInfo>();
             await using var file = File.OpenRead(fileName);
-            using var streamReader = new StreamReader(file);
+            using var streamReader = new ExtendedStreamReader(file);
 
             // Идея в том, чтобы прочесть файл, но сохранить не содержимое,
             // а пару числовых значений для каждой строки:
@@ -71,8 +71,8 @@ namespace Altium
             await using var outFile = File.Create(outFileName);
             await using var streamWriter = new StreamWriter(outFile);
 
-            var batchSize = _options.WriteBatchSize;
-            var i = 0;
+            file.Seek(0, SeekOrigin.Begin);
+            streamReader.DiscardBufferedData();
 
             foreach (var lineInfo in linesOrdered)
             {
@@ -80,13 +80,6 @@ namespace Altium
 
                 line = await streamReader.ReadLineAsync(lineInfo.Index);
                 await streamWriter.WriteLineAsync(line);
-
-                i++;
-
-                if (i % batchSize == 0)
-                {
-                    await streamWriter.FlushAsync();
-                }
             }
 
             // TODO: убрать по завершении
