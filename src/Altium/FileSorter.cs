@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
@@ -13,8 +12,6 @@ namespace Altium
     public class FileSorter
     {
         private readonly FileSorterOptions _options;
-
-        private readonly Regex _lineRegex = new Regex(@"^(?<num>\d+)\.\s(?<text>.*)$");
 
         public FileSorter(IOptions<FileSorterOptions> options)
         {
@@ -33,7 +30,7 @@ namespace Altium
 
             var linesIndex = new List<LineInfo>();
             await using var file = File.OpenRead(fileName);
-            using var streamReader = new ExtendedStreamReader(file);
+            using var streamReader = new StreamReader(file);
 
             // Идея в том, чтобы прочесть файл, но сохранить не содержимое,
             // а пару числовых значений для каждой строки:
@@ -44,7 +41,7 @@ namespace Altium
             // в новый в файл, но уже в правильном порядке. При этом для чтения из исходного файла
             // позиции начала строк уже были сохранены.
 
-            var lineIndex = 0;
+            var curOffset = 0;
             string line;
             while (!streamReader.EndOfStream)
             {
@@ -54,11 +51,15 @@ namespace Altium
                 // StreamReader использует буфер, из-за чего file.Position не даёт нужное значение.
                 line = await streamReader.ReadLineAsync();
 
-                var lineInfo = IndexLine(lineIndex, line);
+                var lineInfo = IndexLine(curOffset, line);
 
                 linesIndex.Add(lineInfo);
 
-                lineIndex++;
+                // ReSharper disable once AssignNullToNotNullAttribute
+                var offset = streamReader.CurrentEncoding.GetByteCount(line)
+                             + streamReader.CurrentEncoding.GetByteCount(Environment.NewLine);
+
+                curOffset += offset;
             }
 
             // сортировка на основе вычисленого ранга
@@ -78,7 +79,10 @@ namespace Altium
             {
                 ct.ThrowIfCancellationRequested();
 
-                line = await streamReader.ReadLineAsync(lineInfo.Index);
+                file.Position = lineInfo.Offset;
+                streamReader.DiscardBufferedData();
+                line = await streamReader.ReadLineAsync();
+
                 await streamWriter.WriteLineAsync(line);
             }
 
@@ -87,27 +91,18 @@ namespace Altium
             Debug.WriteLine(linesOrdered);
         }
 
-        private LineInfo IndexLine(long lineIndex, string line)
+        private LineInfo IndexLine(long offset, string lineStr)
         {
-            var match = _lineRegex.Match(line);
-
-            if (!match.Success)
-            {
-                throw new ArgumentException("Invalid line format.", nameof(line));
-            }
-
-            var number = long.Parse(match.Groups["num"].Value);
-            var text = match.Groups["text"].Value;
-
+            var line = Line.Parse(lineStr);
             const string order = "0123456789AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz";
 
             var maxLineLength = 1024; // TODO: придумать как избавиться от этого параметра
 
             long score = 0;
-            for (var i = 0; i < text.Length; i++)
+            for (var i = 0; i < line.Text.Length; i++)
             {
                 // позиция важна, нужно учитывать индекс символа
-                var c = text[i];
+                var c = line.Text[i];
                 var cIndex = order.IndexOf(c);
                 if (cIndex == -1)
                 {
@@ -119,19 +114,19 @@ namespace Altium
                 score += (maxLineLength - i) * (order.Length - cIndex);
             }
 
-            return new LineInfo(lineIndex, text.Length, score, number);
+            return new LineInfo(offset, line.Text.Length, score, line.Number);
         }
 
         internal class LineInfo
         {
-            public long Index { get; }
+            public long Offset { get; }
             public int TextLength { get; }
             public long TextScore { get; }
             public long Number { get; }
 
-            public LineInfo(long index, int textLength, long textScore, long number)
+            public LineInfo(long offset, int textLength, long textScore, long number)
             {
-                Index = index;
+                Offset = offset;
                 TextLength = textLength;
                 TextScore = textScore;
                 Number = number;
