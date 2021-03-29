@@ -13,6 +13,11 @@
         public int VocabularyLength { get; set; } = 1000;
 
         /// <summary>
+        /// Макс. длина слова в словаре.
+        /// </summary>
+        public int MaxWordLength { get; set; } = 16;
+
+        /// <summary>
         /// Шанс переиспользовать ранее сгенерированную строку.
         /// </summary>
         public int ReuseLineChance = 5;
@@ -31,7 +36,7 @@
         /// <summary>
         /// Максимальное значение числа в строке.
         /// </summary>
-        public int NumberMaxValue { get; set; } = int.MaxValue;
+        public int NumberMaxValue { get; set; } = 1024;
         
         /// <summary>
         /// Максимальная длина символьной части строки (в количестве символов).
