@@ -41,7 +41,7 @@ namespace Altium
             // в новый в файл, но уже в правильном порядке. При этом для чтения из исходного файла
             // позиции начала строк уже были сохранены.
 
-            var curOffset = 0;
+            long curOffset = 0;
             string line;
             while (!streamReader.EndOfStream)
             {
@@ -72,12 +72,16 @@ namespace Altium
             await using var outFile = File.Create(outFileName);
             await using var streamWriter = new StreamWriter(outFile);
 
-            file.Seek(0, SeekOrigin.Begin);
-            streamReader.DiscardBufferedData();
-
             foreach (var lineInfo in linesOrdered)
             {
                 ct.ThrowIfCancellationRequested();
+
+                // 1024 chars = 1024 bytes UTF-8
+                // 10_000_000_000 // 2^64
+                if (lineInfo.Offset < 0)
+                {
+                    throw new InvalidOperationException("Offset: {}");
+                }
 
                 file.Position = lineInfo.Offset;
                 streamReader.DiscardBufferedData();
@@ -93,10 +97,31 @@ namespace Altium
 
         private LineInfo IndexLine(long offset, string lineStr)
         {
+            throw new NotImplementedException();
             var line = Line.Parse(lineStr);
             const string order = "0123456789AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz";
 
-            var maxLineLength = 1024; // TODO: придумать как избавиться от этого параметра
+            // TODO: исправить
+            // должны учитываться
+            // - символ
+            // - позиция
+            // Количество вариантов на каждой позиции = ширина множества,
+            // по условию это 26*2 (символы A-Z в двух регистрах) + 10 (цифры) = 62
+            // Для учёта позиции, чтобы старший разряд всегда перевешивал, вычисление должно быть
+            // 62^i, где i - номер разряда (для символа на позии 0 i = 1024)
+            // Минусы:
+            // 1. 62^1024 - это infinity, такое не вычислить
+            // 2. Сложность напрямую зависит от ширины алфавита и от длины строк, решение плохо масштабируется
+            // 
+            // Мб последовательно сортировать по символу?
+            // Рекурсивно сортировать по разряду, запоминая позиции с одинаковым символом в данном разряде.
+            // Сложности:
+            // 1. Надо каким-то образом не сбить указатели блоков в файле, потому что свап строк - не атомарная операция.
+            // 2. Граничные ситуации, например как когда в первом разряде в каждой строке одинаковый символ.
+            // 1) пройти по файлу, отсортировав по первому символу, запомнив диапазоны файла, где все строки начинаются
+            // с одного символа
+
+            var maxLineLength = 1024;
 
             long score = 0;
             for (var i = 0; i < line.Text.Length; i++)
