@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,49 +21,94 @@ namespace Altium
             _options = options.Value;
         }
 
-        public async Task CreateFile(string outFileName, CancellationToken ct)
+        public async Task<CreateFileStats> CreateFile(string outFileName, CancellationToken ct)
         {
             Init();
 
-            var batchSize = _options.BatchSize;
-            long currentLength;
+            long currentLength = 0;
+            Task prevAppendTask = null;
+            var batchCount = 0;
 
-            var lastLines = new Queue<Line>(_options.LineCacheSize);
+            var genTimes = new List<TimeSpan>();
+            var writeTimes = new List<TimeSpan>();
+            var waitTimes = new List<TimeSpan>();
 
-            do
+            var genSw = new Stopwatch();
+            var waitSw = new Stopwatch();
+
+            while (currentLength < _options.DesiredFileLength)
             {
-                var batch = new string[batchSize];
+                genSw.Restart();
 
-                for (var i = 0; i < batchSize; i++)
+                var batch = CreateBatch();
+
+                genTimes.Add(genSw.Elapsed);
+
+                if (prevAppendTask != null)
                 {
-                    Line currentLine;
-
-                    // При таком подходе макс расстояние между дубликатами строк в файле
-                    // будет ограничено длиной очереди.
-                    var useExistingLine = _rnd.Next(0, 100) < _options.ReuseLineChance;
-                    if (useExistingLine && lastLines.Any())
+                    if (!prevAppendTask.IsCompleted)
                     {
-                        currentLine = lastLines.Dequeue();
-                    }
-                    else
-                    {
-                        currentLine = CreateLine();
+                        waitSw.Restart();
 
-                        lastLines.Enqueue(currentLine);
+                        await prevAppendTask;
 
-                        if (lastLines.Count > _options.LineCacheSize)
-                        {
-                            lastLines.Dequeue();
-                        }
+                        waitTimes.Add(waitSw.Elapsed);
                     }
 
-                    batch[i] = currentLine.ToString();
+                    currentLength = new FileInfo(outFileName).Length;
                 }
 
-                await File.AppendAllLinesAsync(outFileName, batch, ct);
+                if (currentLength < _options.DesiredFileLength)
+                {
+                    prevAppendTask = Task.Run(async () =>
+                    {
+                        var writeSw = new Stopwatch();
+                        writeSw.Start();
 
-                currentLength = new FileInfo(outFileName).Length;
-            } while (currentLength < _options.DesiredFileLength);
+                        await File.AppendAllLinesAsync(outFileName, batch, ct);
+
+                        writeTimes.Add(writeSw.Elapsed);
+                    }, ct);
+
+                    batchCount++;
+                }
+            }
+
+            return new CreateFileStats
+            {
+                BatchCount = batchCount,
+                GenTimes = genTimes,
+                WaitTimes = waitTimes,
+                WriteTimes = writeTimes
+            };
+        }
+
+        private string[] CreateBatch()
+        {
+            var size = _options.BatchSize;
+
+            var batch = new string[size];
+
+            for (var i = 0; i < size; i++)
+            {
+                string currentLine;
+
+                // При таком подходе макс расстояние между дубликатами строк в файле
+                // будет ограничено длиной очереди.
+                var useExistingLine = _rnd.Next(0, 100) < _options.ReuseLineChance;
+                if (useExistingLine && i != 0)
+                {
+                    currentLine = batch[_rnd.Next(0, i)];
+                }
+                else
+                {
+                    currentLine = CreateLine().ToString();
+                }
+
+                batch[i] = currentLine;
+            }
+
+            return batch;
         }
 
         private Line CreateLine()
