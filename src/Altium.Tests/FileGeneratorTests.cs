@@ -22,18 +22,11 @@ namespace Altium.Tests
             _fixture.Register(() => new FileGenerator(Options.Create(_fixture.Create<FileGeneratorOptions>())));
         }
 
-        [TestCase(1000)]
-        [TestCase(10000)]
-        public async Task CreateFile_ProducesFileOfDesiredLength(long sizeMb)
+        [TestCase(1000, "out/1GB.txt")]
+        [TestCase(10000, "out/10GB.txt")]
+        public async Task CreateFile_ProducesFileOfDesiredLength(long sizeMb, string outFileName)
         {
             // arrange
-            var fileName = $"{Guid.NewGuid():N}.txt";
-            
-            // UTF-8: 1 symbol = 1 byte
-            // 1024 symbols = 1024 bytes
-            // Memory available = 2 to 2.5 GB
-            // which is 2 000 000 000 to 2 500 000 000 bytes
-
             var options = new FileGeneratorOptions
             {
                 DesiredFileLength = sizeMb * 1_000_000,
@@ -47,12 +40,12 @@ namespace Altium.Tests
             sw.Start();
 
             // act
-            var stats = await generator.CreateFile(fileName, CancellationToken.None);
+            var stats = await generator.CreateFile(outFileName, CancellationToken.None);
 
             // assert
             sw.Stop();
 
-            Assert.IsTrue(new FileInfo(fileName).Length > options.DesiredFileLength);
+            Assert.IsTrue(new FileInfo(outFileName).Length > options.DesiredFileLength);
 
             var waitAvg = stats.WaitTimes.Any() ? stats.WaitTimes.Average(x => x.TotalSeconds) : 0;
             var writeAvg = stats.WriteTimes.Any() ? stats.WriteTimes.Average(x => x.TotalSeconds) : 0;

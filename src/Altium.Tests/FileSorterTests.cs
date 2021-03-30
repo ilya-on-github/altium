@@ -19,13 +19,14 @@ namespace Altium.Tests
             _fixture.Register(() => new FileSorter(Options.Create(_fixture.Create<FileSorterOptions>())));
         }
 
-        [TestCase(@"files/example.txt", @"files/example_expected.txt")]
-        public async Task Sort_ProducesCorrectResult(string inputFileName, string expectedOutputFileName)
+        [TestCase(@"files/example.txt", @"files/example_expected.txt", 2)]
+        // [TestCase(@"files/example_1GB.txt", @"files/example_expected.txt", 50000)]
+        public async Task Sort_ProducesCorrectResult(string inputFileName, string expectedOutputFileName, int batchSize)
         {
             // arrange
             var options = new FileSorterOptions
             {
-                BatchSize = 1000
+                BatchSize = batchSize
             };
             _fixture.Register(() => options);
             var outFileName = CreateOutFileName(inputFileName);
@@ -52,20 +53,25 @@ namespace Altium.Tests
             Assert.IsTrue(outputActualReader.EndOfStream);
         }
 
-        [TestCase(@"files/example.txt")]
-        public async Task Sort(string fileName)
+        // [TestCase(@"files/1GB.txt", 50000)]
+        // [TestCase(@"files/10GB.txt", 50000)]
+        public void Sort_DoesntThrow(string fileName, int batchSize)
         {
             // arrange
             var options = new FileSorterOptions
             {
-                BatchSize = 50000
+                BatchSize = batchSize
             };
             _fixture.Register(() => options);
             var sorter = _fixture.Create<FileSorter>();
             var outFileName = CreateOutFileName(fileName);
 
-            // act
-            await sorter.Sort(fileName, outFileName, CancellationToken.None);
+            // assert
+            Assert.DoesNotThrowAsync(async () =>
+            {
+                // act
+                await sorter.Sort(fileName, outFileName, CancellationToken.None);
+            });
         }
 
         private static string CreateOutFileName(string srcFileName)
