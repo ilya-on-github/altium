@@ -1,5 +1,4 @@
-﻿using System;
-using System.IO;
+﻿using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoFixture;
@@ -24,7 +23,12 @@ namespace Altium.Tests
         public async Task Sort_ProducesCorrectResult(string inputFileName, string expectedOutputFileName)
         {
             // arrange
-            var outFileName = $"{Guid.NewGuid()}.txt";
+            var options = new FileSorterOptions
+            {
+                BatchSize = 1000
+            };
+            _fixture.Register(() => options);
+            var outFileName = CreateOutFileName(inputFileName);
             var sorter = _fixture.Create<FileSorter>();
 
             // act
@@ -46,6 +50,35 @@ namespace Altium.Tests
             }
 
             Assert.IsTrue(outputActualReader.EndOfStream);
+        }
+
+        [TestCase(@"files/example.txt")]
+        public async Task Sort(string fileName)
+        {
+            // arrange
+            var options = new FileSorterOptions
+            {
+                BatchSize = 50000
+            };
+            _fixture.Register(() => options);
+            var sorter = _fixture.Create<FileSorter>();
+            var outFileName = CreateOutFileName(fileName);
+
+            // act
+            await sorter.Sort(fileName, outFileName, CancellationToken.None);
+        }
+
+        private static string CreateOutFileName(string srcFileName)
+        {
+            var dirName = Path.GetDirectoryName(srcFileName);
+            var fileNameWithoutExt = Path.GetFileNameWithoutExtension(srcFileName);
+            var ext = Path.GetExtension(srcFileName);
+
+            var fileName = $"{fileNameWithoutExt}_sorted{ext}";
+
+            return dirName == null
+                ? fileName
+                : Path.Combine(dirName, fileName);
         }
     }
 }
