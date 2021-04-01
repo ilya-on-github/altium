@@ -4,6 +4,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Altium", "Altium\Altium.csp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Altium.Tests", "Altium.Tests\Altium.Tests.csproj", "{3E895095-7EDE-4854-B329-7C4024FE7D99}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Altium.Sort", "Altium.Sort\Altium.Sort.csproj", "{A404CA03-AD01-48D9-91CB-9AC3A747F95C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +20,9 @@ Global
 		{3E895095-7EDE-4854-B329-7C4024FE7D99}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3E895095-7EDE-4854-B329-7C4024FE7D99}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3E895095-7EDE-4854-B329-7C4024FE7D99}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A404CA03-AD01-48D9-91CB-9AC3A747F95C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A404CA03-AD01-48D9-91CB-9AC3A747F95C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A404CA03-AD01-48D9-91CB-9AC3A747F95C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A404CA03-AD01-48D9-91CB-9AC3A747F95C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

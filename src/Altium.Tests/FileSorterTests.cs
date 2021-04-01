@@ -29,7 +29,7 @@ namespace Altium.Tests
                 BatchSize = batchSize
             };
             _fixture.Register(() => options);
-            var outFileName = CreateOutFileName(inputFileName);
+            var outFileName = FileSorter.DefaultOutFileName(inputFileName);
             var sorter = _fixture.Create<FileSorter>();
 
             // act
@@ -55,6 +55,7 @@ namespace Altium.Tests
 
         // [TestCase(@"files/1GB.txt", 50000)]
         // [TestCase(@"files/10GB.txt", 50000)]
+        [TestCase("files/example.txt", 2)]
         public void Sort_DoesntThrow(string fileName, int batchSize)
         {
             // arrange
@@ -64,27 +65,13 @@ namespace Altium.Tests
             };
             _fixture.Register(() => options);
             var sorter = _fixture.Create<FileSorter>();
-            var outFileName = CreateOutFileName(fileName);
 
             // assert
             Assert.DoesNotThrowAsync(async () =>
             {
                 // act
-                await sorter.Sort(fileName, outFileName, CancellationToken.None);
+                await sorter.Sort(fileName, null, CancellationToken.None);
             });
-        }
-
-        private static string CreateOutFileName(string srcFileName)
-        {
-            var dirName = Path.GetDirectoryName(srcFileName);
-            var fileNameWithoutExt = Path.GetFileNameWithoutExtension(srcFileName);
-            var ext = Path.GetExtension(srcFileName);
-
-            var fileName = $"{fileNameWithoutExt}_sorted{ext}";
-
-            return dirName == null
-                ? fileName
-                : Path.Combine(dirName, fileName);
         }
     }
 }

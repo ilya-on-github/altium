@@ -24,11 +24,26 @@ namespace Altium
                 throw new ArgumentException($"File '{fileName}' doesn't exist.", nameof(fileName));
             }
 
+            outFileName ??= DefaultOutFileName(fileName);
+
             var batchFileNames = await Split(fileName, _options.BatchSize, ct);
 
             await Merge(batchFileNames, outFileName, ct);
 
             batchFileNames.ForEach(File.Delete);
+        }
+
+        public static string DefaultOutFileName(string srcFileName)
+        {
+            var dirName = Path.GetDirectoryName(srcFileName);
+            var fileNameWithoutExt = Path.GetFileNameWithoutExtension(srcFileName);
+            var ext = Path.GetExtension(srcFileName);
+
+            var fileName = $"{fileNameWithoutExt}_sorted{ext}";
+
+            return dirName == null
+                ? fileName
+                : Path.Combine(dirName, fileName);
         }
 
         /// <summary>
